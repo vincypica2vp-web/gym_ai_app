@@ -27,9 +27,9 @@ jobs:
     - name: Install dependencies
       run: flutter pub get
 
-    - name: Build iOS (Release unsigned)
-      run: flutter build ios --release --no-codesign --no-pub --dart-define=OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-      
+    - name: Build iOS (Simulator / Unsigned)
+      run: flutter build ios --simulator --dart-define=OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+
     - name: Upload iOS Build
       uses: actions/upload-artifact@v4
       with:
