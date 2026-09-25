@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const GymAIApp());
@@ -12,239 +10,197 @@ class GymAIApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Gym AI Coach',
+      title: 'Gym AI',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
-        useMaterial3: true,
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF090D16),
+        primaryColor: const Color(0xFF38BDF8),
+        fontFamily: 'Plus Jakarta Sans',
       ),
-      home: const OnboardingScreen(),
+      home: const HomeScreen(),
     );
   }
 }
 
-class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key});
-
-  @override
-  State<OnboardingScreen> createState() => _OnboardingScreenState();
-}
-
-class _OnboardingScreenState extends State<OnboardingScreen> {
-  final _weightController = TextEditingController();
-  final _heightController = TextEditingController();
-  double _daysPerWeek = 3;
-  
-  final Map<String, bool> _equipment = {
-    'Manubri': true,
-    'Bilanciere': false,
-    'Cavi / Corde': false,
-    'Macchinari guidati': true,
-    'Corpo libero': true,
-  };
-
-  bool _isLoading = false;
-
-  Future<void> _generateWorkout() async {
-    final weight = _weightController.text;
-    final height = _heightController.text;
-
-    if (weight.isEmpty || height.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Per favore inserisci peso e altezza!')),
-      );
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    final selectedEquipment = _equipment.entries
-        .where((e) => e.value)
-        .map((e) => e.key)
-        .join(', ');
-
-    try {
-      const apiKey = 'TUA_API_KEY_QUI';
-      
-      final prompt = '''
-Sei un personal trainer professionista. Crea una scheda di allenamento settimanale personalizzata basata su questi dati:
-- Peso: $weight kg
-- Altezza: $height cm
-- Giorni di allenamento a settimana: ${_daysPerWeek.toInt()}
-- Attrezzatura disponibile: $selectedEquipment
-
-Restituisci la scheda suddivisa per i giorni di allenamento, indicando per ogni esercizio le serie, le ripetizioni e i recuperi consigliati. Usa una formattazione pulita e leggibile.
-''';
-
-      final response = await http.post(
-        Uri.parse('https://api.openai.com/v1/chat/completions'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $apiKey',
-        },
-        body: jsonEncode({
-          'model': 'gpt-4o-mini',
-          'messages': [
-            {'role': 'user', 'content': prompt}
-          ],
-          'temperature': 0.7,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-        final workoutResult = data['choices'][0]['message']['content'];
-
-        setState(() {
-          _isLoading = false;
-        });
-
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => WorkoutResultScreen(workoutPlan: workoutResult),
-          ),
-        );
-      } else {
-        throw Exception('Errore nella risposta dell\'IA');
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => WorkoutResultScreen(
-            workoutPlan: 'ATTENZIONE: Inserisci una chiave API valida nel codice per ricevere la risposta dall\'IA.\n\nEsempio di scheda generata per ${_daysPerWeek.toInt()} giorni:\n- Giorno 1: Petto e Tricipiti\n- Giorno 2: Dorsali e Bicipiti\n- Giorno 3: Gambe e Spalle',
-          ),
-        ),
-      );
-    }
-  }
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Configura il tuo Allenamento IA'),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'I tuoi dati biometrici',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _weightController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Peso (kg)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _heightController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Altezza (cm)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Giorni di allenamento a settimana',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Slider(
-              value: _daysPerWeek,
-              min: 1,
-              max: 7,
-              divisions: 6,
-              label: '${_daysPerWeek.toInt()} giorni',
-              onChanged: (value) {
-                setState(() {
-                  _daysPerWeek = value;
-                });
-              },
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Attrezzatura disponibile',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            ..._equipment.keys.map((String key) {
-              return CheckboxListTile(
-                title: Text(key),
-                value: _equipment[key],
-                onChanged: (bool? value) {
-                  setState(() {
-                    _equipment[key] = value ?? false;
-                  });
-                },
-              );
-            }),
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: _isLoading ? null : _generateWorkout,
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'Genera Scheda con IA',
-                        style: TextStyle(fontSize: 16),
-                      ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class WorkoutResultScreen extends StatelessWidget {
-  final String workoutPlan;
-
-  const WorkoutResultScreen({super.key, required this.workoutPlan});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('La tua Scheda Personalizzata'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: SafeArea(
         child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Ecco il tuo programma:',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              // Header con saluto e profilo
+              Row(
+                mainAxisAlignment: MainAxisAlignment.between,
+                children: [
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'BENTORNATO',
+                        style: TextStyle(
+                          color: Color(0xFF38BDF8),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Davide 👋',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFF334155)),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+                      onPressed: () {},
+                    ),
+                  ),
+                ],
               ),
-              const Divider(height: 30),
-              Text(
-                workoutPlan,
-                style: const TextStyle(fontSize: 16, height: 1.5),
+              const SizedBox(height: 30),
+
+              // Card principale in evidenza (Workout del giorno)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0284C7), Color(0xFF0369A1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0284C7).withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.between,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            'AI POWERED',
+                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const Icon(Icons.bolt, color: Colors.white, size: 28),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Full Body Intensivo',
+                      style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Generato su misura in base ai tuoi progressi recenti.',
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF0F172A),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      onPressed: () {},
+                      child: const Text('Inizia Allenamento', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 30),
+
+              // Titolo sezione
+              const Text(
+                'Categorie Rapide',
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+
+              // Griglia card fluttuanti
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildCategoryCard(
+                      icon: Icons.fitness_center,
+                      title: 'Forza',
+                      subtitle: 'Pesi & Massa',
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildCategoryCard(
+                      icon: Icons.local_fire_department,
+                      title: 'Cardio',
+                      subtitle: 'HIIT & Core',
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryCard({required IconData icon, required String title, required String subtitle}) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF334155).withOpacity(0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF38BDF8).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: const Color(0xFF38BDF8), size: 24),
+          ),
+          const SizedBox(height: 16),
+          Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(subtitle, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+        ],
       ),
     );
   }
